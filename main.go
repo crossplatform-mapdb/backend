@@ -15,28 +15,32 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Person struct {
-	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	Firstname string             `json:"firstname,omitempty" bson:"firstname,omitempty"`
-	Lastname  string             `json:"lastname,omitempty" bson:"lastname,omitempty"`
+// User defines the structure of a User
+type User struct {
+	ID       primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	Username string             `json:"username,omitempty bson:"username,omitempty`
+	Email    string             `json:"email,omitempty bson:"email,omitempty`
+	Password string             `json:"password,omitempty bson:"password,omitempty`
 }
 
 var client *mongo.Client
 
-func CreatePersonEndpoint(response http.ResponseWriter, request *http.Request) {
+// CreateUserEndpoint Create a new User
+func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
-	var person Person
-	json.NewDecoder(request.Body).Decode(&person)
-	collection := client.Database("mapdb-test").Collection("people")
+	var user User
+	json.NewDecoder(request.Body).Decode(&user)
+	collection := client.Database("mapdb").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	result, _ := collection.InsertOne(ctx, person)
+	result, _ := collection.InsertOne(ctx, user)
 	json.NewEncoder(response).Encode(result)
 }
 
-func GetPeopleEndpoint(response http.ResponseWriter, request *http.Request) {
+// GetUsersEndpoint Get all Users
+func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
-	var people []Person
-	collection := client.Database("mapdb-test").Collection("people")
+	var users []User
+	collection := client.Database("mapdb").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
@@ -46,32 +50,33 @@ func GetPeopleEndpoint(response http.ResponseWriter, request *http.Request) {
 	}
 	defer cursor.Close(ctx)
 	for cursor.Next(ctx) {
-		var person Person
-		cursor.Decode(&person)
-		people = append(people, person)
+		var user User
+		cursor.Decode(&user)
+		users = append(users, user)
 	}
 	if err := cursor.Err(); err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(` { "message": "` + err.Error() + `"}`))
 		return
 	}
-	json.NewEncoder(response).Encode(people)
+	json.NewEncoder(response).Encode(users)
 }
 
-func GetPersonEndpoint(response http.ResponseWriter, request *http.Request) {
+// GetUserEndpoint Get a single User
+func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	params := mux.Vars(request)
 	id, _ := primitive.ObjectIDFromHex(params["id"])
-	var person Person
-	collection := client.Database("mapdb-test").Collection("people")
+	var user User
+	collection := client.Database("mapdb").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	err := collection.FindOne(ctx, Person{ID: id}).Decode(&person)
+	err := collection.FindOne(ctx, User{ID: id}).Decode(&user)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
 		return
 	}
-	json.NewEncoder(response).Encode(person)
+	json.NewEncoder(response).Encode(user)
 }
 
 func main() {
@@ -79,8 +84,8 @@ func main() {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	client, _ = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	router := mux.NewRouter()
-	router.HandleFunc("/api/person", CreatePersonEndpoint).Methods("POST")
-	router.HandleFunc("/api/person/{id}", GetPersonEndpoint).Methods("GET")
-	router.HandleFunc("/api/people", GetPeopleEndpoint).Methods("GET")
+	router.HandleFunc("/api/signup", CreateUserEndpoint).Methods("POST")
+	router.HandleFunc("/api/user/{id}", GetUserEndpoint).Methods("GET")
+	router.HandleFunc("/api/users", GetUsersEndpoint).Methods("GET")
 	http.ListenAndServe(":8000", router)
 }
