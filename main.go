@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/brianvoe/sjwt"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 
@@ -24,7 +25,13 @@ type User struct {
 	Password string             `json:"password,omitempty" bson:"password,omitempty"`
 }
 
+// Token sets up a datamodel for the token
+type Token struct {
+	Token string `json:"token,omitempty" bson:"token,omitempty"`
+}
+
 var client *mongo.Client
+var secretKey = []byte("8c88a097124feb485ada8cc5f5403b89db2809db9fc")
 
 // HashPassword hashes the password
 func HashPassword(password string) (string, error) {
@@ -38,8 +45,21 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
+// VerifyToken serves to verify that the token is correct
+func VerifyToken(token string) bool {
+	hasVerified := sjwt.Verify(token, secretKey)
+	return hasVerified
+}
+
 // CreateUserEndpoint Create a new User
 func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
+	var token Token
+	json.NewDecoder(request.Body).Decode(&token)
+	if VerifyToken(token.Token) == false {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{ "message": "You need to provide a token in the body inorder to access this resource." }`))
+		return
+	}
 	response.Header().Add("content-type", "application/json")
 	var user User
 	json.NewDecoder(request.Body).Decode(&user)
@@ -53,6 +73,13 @@ func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 
 // GetUsersEndpoint Get all Users
 func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
+	var token Token
+	json.NewDecoder(request.Body).Decode(&token)
+	if VerifyToken(token.Token) == false {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{ "message": "You need to provide a token in the body inorder to access this resource." }`))
+		return
+	}
 	response.Header().Add("content-type", "application/json")
 	var users []User
 	collection := client.Database("mapdb").Collection("users")
@@ -79,6 +106,13 @@ func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
 
 // GetUserEndpoint Get a single User
 func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
+	var token Token
+	json.NewDecoder(request.Body).Decode(&token)
+	if VerifyToken(token.Token) == false {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{ "message": "You need to provide a token in the body inorder to access this resource." }`))
+		return
+	}
 	response.Header().Set("content-type", "application/json")
 	params := mux.Vars(request)
 	id, _ := primitive.ObjectIDFromHex(params["id"])
@@ -111,11 +145,19 @@ func LoginEndpoint(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	match := CheckPasswordHash(loginUser.Password, dbUser.Password)
+
+	claims := sjwt.New()
+	claims.Set("username", loginUser.Username)
+	claims.Set("id", loginUser.ID)
+
+	token := claims.Generate(secretKey)
+
 	if match == true {
-		response.Write([]byte(`{ "message": "<token>" }`))
+		response.Write([]byte(`{ "message": "` + token + `"}`))
 	} else {
 		response.WriteHeader(http.StatusUnauthorized)
 		response.Write([]byte(`{ "message": "you could not be logged in." }`))
+		return
 	}
 }
 
