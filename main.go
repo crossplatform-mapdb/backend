@@ -48,26 +48,35 @@ func CheckPasswordHash(password, hash string) bool {
 // VerifyToken serves to verify that the token is correct
 func VerifyToken(token string) bool {
 	hasVerified := sjwt.Verify(token, secretKey)
+	claims, _ := sjwt.Parse(token)
+	err := claims.Validate()
+	if err != nil {
+		return false
+	}
 	return hasVerified
 }
 
 // CreateUserEndpoint Create a new User
 func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
-	var token Token
-	json.NewDecoder(request.Body).Decode(&token)
-	if VerifyToken(token.Token) == false {
-		response.WriteHeader(http.StatusUnauthorized)
-		response.Write([]byte(`{ "message": "You need to provide a token in the body inorder to access this resource." }`))
+	response.Header().Add("content-type", "application/json")
+	var signUpUser User
+	var dbUser User
+	var db2User User
+	json.NewDecoder(request.Body).Decode(&signUpUser)
+	collection := client.Database("mapdb").Collection("users")
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	collection.FindOne(ctx, User{Username: signUpUser.Username}).Decode(&dbUser)
+	if dbUser.Username == signUpUser.Username {
+		response.Write([]byte(`{ "message": "` + "An account has already been created with that username, please choose another." + `" }`))
 		return
 	}
-	response.Header().Add("content-type", "application/json")
-	var user User
-	json.NewDecoder(request.Body).Decode(&user)
-	user.Password, _ = HashPassword(user.Password)
-	fmt.Println(user.Password)
-	collection := client.Database("mapdb").Collection("users")
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	result, _ := collection.InsertOne(ctx, user)
+	collection.FindOne(ctx, User{Email: signUpUser.Email}).Decode(&db2User)
+	if db2User.Email == signUpUser.Email {
+		response.Write([]byte(`{ "message": "` + "An account has already been created with that username, please choose another." + `" }`))
+		return
+	}
+	signUpUser.Password, _ = HashPassword(signUpUser.Password)
+	result, _ := collection.InsertOne(ctx, signUpUser)
 	json.NewEncoder(response).Encode(result)
 }
 
@@ -148,10 +157,10 @@ func LoginEndpoint(response http.ResponseWriter, request *http.Request) {
 
 	claims := sjwt.New()
 	claims.Set("username", loginUser.Username)
-	claims.Set("id", loginUser.ID)
-
+	claims.Set("id", dbUser.ID.String())
+	claims.SetExpiresAt(time.Now().Add(time.Hour * 24))
+	claims.SetTokenID()
 	token := claims.Generate(secretKey)
-
 	if match == true {
 		response.Write([]byte(`{ "message": "` + token + `"}`))
 	} else {

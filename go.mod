@@ -3,7 +3,7 @@ module gitlab.zxck.dev/mapdb/backend
 go 1.14
 
 require (
-	github.com/brianvoe/sjwt v0.5.1 // indirect
+	github.com/brianvoe/sjwt v0.5.1
 	github.com/gbrlsnchs/jwt/v3 v3.0.0-rc.1 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/lestrrat-go/jwx v0.9.1 // indirect
