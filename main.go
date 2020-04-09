@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/brianvoe/sjwt"
@@ -31,7 +32,7 @@ type Token struct {
 }
 
 var client *mongo.Client
-var secretKey = []byte("8c88a097124feb485ada8cc5f5403b89db2809db9fc")
+var secretKey = []byte(os.Getenv("KEY"))
 
 // HashPassword hashes the password
 func HashPassword(password string) (string, error) {
@@ -173,7 +174,7 @@ func LoginEndpoint(response http.ResponseWriter, request *http.Request) {
 func main() {
 	fmt.Println("Starting the application...")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	client, _ = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, _ = mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("URI")))
 	router := mux.NewRouter()
 	router.HandleFunc("/api/signup", CreateUserEndpoint).Methods("POST")
 	router.HandleFunc("/api/user/{id}", GetUserEndpoint).Methods("GET")

@@ -3,6 +3,8 @@ version: '3.4'
 services:
   backend:
     image: backend
+      environment: 
+        key: "f360a0db846d70fa7c1abc25dc0062624b75bf40bd3841756b79d"
     build: .
     ports:
       - 8000
