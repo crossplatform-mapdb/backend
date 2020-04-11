@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -44,6 +45,7 @@ func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	signUpUser.Password, _ = HashPassword(signUpUser.Password)
+	signUpUser.Admin = "false"
 	result, _ := collection.InsertOne(ctx, signUpUser)
 	json.NewEncoder(response).Encode(result)
 }
@@ -51,7 +53,7 @@ func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 // GetUsersEndpoint Get all Users
 func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
 	var token Token
-	json.NewDecoder(request.Body).Decode(&token)
+	token.Token = request.Header.Get("token")
 	if VerifyToken(token.Token) == false {
 		response.WriteHeader(http.StatusUnauthorized)
 		response.Write([]byte(`{ "message": "You need to provide a token in the body inorder to access this resource." }`))
@@ -71,6 +73,10 @@ func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
 	for cursor.Next(ctx) {
 		var user User
 		cursor.Decode(&user)
+		admin, _ := strconv.ParseBool(GetUserByUsername(GetUsernameFromToken(token.Token)).Admin)
+		if admin == false {
+			user.Password = "hidden"
+		}
 		users = append(users, user)
 	}
 	if err := cursor.Err(); err != nil {
@@ -84,7 +90,7 @@ func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
 // GetUserEndpoint Get a single User
 func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	var token Token
-	json.NewDecoder(request.Body).Decode(&token)
+	token.Token = request.Header.Get("token")
 	if VerifyToken(token.Token) == false {
 		response.WriteHeader(http.StatusUnauthorized)
 		response.Write([]byte(`{ "message": "You need to provide a token in the body inorder to access this resource." }`))
@@ -101,6 +107,10 @@ func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
 		return
+	}
+	admin, _ := strconv.ParseBool(GetUserByUsername(GetUsernameFromToken(token.Token)).Admin)
+	if admin == false {
+		user.Password = "hidden"
 	}
 	json.NewEncoder(response).Encode(user)
 }

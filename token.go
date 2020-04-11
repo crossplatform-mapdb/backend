@@ -35,13 +35,3 @@ func CreateToken(loginUser User, dbUser User) string {
 	token := claims.Generate(secretKey)
 	return token
 }
-
-// GetUserIDFromToken will allow us to grab the UserID from the token
-func GetUserIDFromToken(token string) string {
-	if VerifyToken(token) == false {
-		return "unidentified"
-	}
-	claims, _ := sjwt.Parse(token)
-	userid, _ := claims.GetStr("id")
-	return userid
-}
