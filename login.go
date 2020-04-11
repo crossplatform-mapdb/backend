@@ -32,20 +32,22 @@ func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	var dbUser User
 	var db2User User
 	json.NewDecoder(request.Body).Decode(&signUpUser)
+	collection := client.Database("mapdb").Collection("users")
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	dbUser, err := GetUserByUsername(signUpUser.Username)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		response.Write([]byte(` { "message": "` + err.Error() + `"}`))
 		return
 	}
 	if dbUser.Username == signUpUser.Username {
 		response.Write([]byte(`{ "message": "` + "An account has already been created with that username, please choose another." + `" }`))
 		return
 	}
-	db2User, err := GetUserByEmail(signUpUser.Email)
-	if err != nil {
+	db2User, err2 := GetUserByEmail(signUpUser.Email)
+	if err2 != nil {
 		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		response.Write([]byte(` { "message": "` + err2.Error() + `"}`))
 		return
 	}
 	if db2User.Email == signUpUser.Email {
@@ -120,8 +122,9 @@ func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
 		return
 	}
-	admin, _ := strconv.ParseBool(GetUserByUsername(GetUsernameFromToken(token.Token)).Admin)
-	if admin == false {
+	admin, _ := GetUserByUsername(GetUsernameFromToken(token.Token))
+	adminCheck, _ := strconv.ParseBool(admin.Admin)
+	if adminCheck == false {
 		user.Password = "hidden"
 	}
 	json.NewEncoder(response).Encode(user)
