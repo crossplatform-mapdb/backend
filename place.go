@@ -39,7 +39,7 @@ func GetPlacesEndpoint(response http.ResponseWriter, request *http.Request) {
 	}
 	response.Header().Add("content-type", "application/json")
 	var places []Place
-	collection := client.Database("mapdb").Collection("users")
+	collection := client.Database("mapdb").Collection("places")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
