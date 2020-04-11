@@ -92,6 +92,7 @@ func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
 		admin, _ := strconv.ParseBool(user2.Admin)
 		if admin == false {
 			user.Password = "hidden"
+			user.Email = "hidden"
 		}
 		users = append(users, user)
 	}
@@ -126,6 +127,7 @@ func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	adminCheck, _ := strconv.ParseBool(admin.Admin)
 	if adminCheck == false {
 		user.Password = "hidden"
+		user.Email = "hidden"
 	}
 	json.NewEncoder(response).Encode(user)
 }
