@@ -5,18 +5,34 @@ import (
 	"time"
 
 	"github.com/brianvoe/sjwt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// GetUserByUsername allows you to get a user by their ID
-func GetUserByUsername(username string) User {
+// GetUserByUsername allows you to get a user by their Username
+func GetUserByUsername(username string) (User, error) {
 	var dbUser User
 	collection := client.Database("mapdb").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	err := collection.FindOne(ctx, User{Username: username}).Decode(&dbUser)
-	if err != nil {
-		return User{}
-	}
-	return dbUser
+	return dbUser, err
+}
+
+// GetUserByEmail allows you to get a user by their Email address
+func GetUserByEmail(email string) (User, error) {
+	var dbUser User
+	collection := client.Database("mapdb").Collection("users")
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	err := collection.FindOne(ctx, User{Email: email}).Decode(&dbUser)
+	return dbUser, err
+}
+
+// GetUserByID allows you to get a user by their ID
+func GetUserByID(id primitive.ObjectID) (User, error) {
+	var dbUser User
+	collection := client.Database("mapdb").Collection("users")
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	err := collection.FindOne(ctx, User{ID: id}).Decode(&dbUser)
+	return dbUser, err
 }
 
 // GetUsernameFromToken will allow us to grab the Username from the token

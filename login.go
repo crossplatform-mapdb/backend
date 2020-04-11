@@ -32,14 +32,22 @@ func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	var dbUser User
 	var db2User User
 	json.NewDecoder(request.Body).Decode(&signUpUser)
-	collection := client.Database("mapdb").Collection("users")
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	collection.FindOne(ctx, User{Username: signUpUser.Username}).Decode(&dbUser)
+	dbUser, err := GetUserByUsername(signUpUser.Username)
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		return
+	}
 	if dbUser.Username == signUpUser.Username {
 		response.Write([]byte(`{ "message": "` + "An account has already been created with that username, please choose another." + `" }`))
 		return
 	}
-	collection.FindOne(ctx, User{Email: signUpUser.Email}).Decode(&db2User)
+	db2User, err := GetUserByEmail(signUpUser.Email)
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		return
+	}
 	if db2User.Email == signUpUser.Email {
 		response.Write([]byte(`{ "message": "` + "An account has already been created with that email, try logging in." + `" }`))
 		return
@@ -73,7 +81,13 @@ func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
 	for cursor.Next(ctx) {
 		var user User
 		cursor.Decode(&user)
-		admin, _ := strconv.ParseBool(GetUserByUsername(GetUsernameFromToken(token.Token)).Admin)
+		user2, err := GetUserByUsername(GetUsernameFromToken(token.Token))
+		if err != nil {
+			response.WriteHeader(http.StatusInternalServerError)
+			response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+			return
+		}
+		admin, _ := strconv.ParseBool(user2.Admin)
 		if admin == false {
 			user.Password = "hidden"
 		}
@@ -100,9 +114,7 @@ func GetUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	id, _ := primitive.ObjectIDFromHex(params["id"])
 	var user User
-	collection := client.Database("mapdb").Collection("users")
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	err := collection.FindOne(ctx, User{ID: id}).Decode(&user)
+	user, err := GetUserByID(id)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
@@ -121,9 +133,7 @@ func LoginEndpoint(response http.ResponseWriter, request *http.Request) {
 	var loginUser User
 	var dbUser User
 	json.NewDecoder(request.Body).Decode(&loginUser)
-	collection := client.Database("mapdb").Collection("users")
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	err := collection.FindOne(ctx, User{Username: loginUser.Username}).Decode(&dbUser)
+	dbUser, err := GetUserByUsername(loginUser.Username)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
